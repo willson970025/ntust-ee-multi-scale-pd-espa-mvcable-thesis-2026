@@ -1,0 +1,49 @@
+# === 模型權重（大型檔案，不上傳） ===
+*.keras
+*.h5
+*.hdf5
+*.pb
+*.ckpt
+*.ckpt.*
+*.tflite
+*.onnx
+saved_model/
+saved_models/
+checkpoints/
+
+# === Grad-CAM / test 圖檔資料夾（總計 ~560MB，依使用者決策排除） ===
+all_7class_6(G)_add_noise_mix_train/GG_gradcam/
+all_7class_6(G)_add_noise_mix_train/GG_gradcam_filter/
+all_7class_6(G)_add_noise_mix_train/GG_gradcam_new/
+all_7class_6(G)_add_noise_mix_train/test/
+
+# === Windows 從 NTFS 帶過來的元資料 ===
+*:Zone.Identifier
+**/*:Zone.Identifier
+
+# === Claude Code 本地設定 ===
+.claude/
+.claude/**
+
+# === Python 常規排除 ===
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# === 系統 / IDE ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# === 訓練輸出大檔（保險用） ===
+*.log
+!training_log.txt
+!kfold_report.txt

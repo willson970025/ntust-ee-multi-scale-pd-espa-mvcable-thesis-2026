@@ -1,0 +1,27 @@
+========================================
+Netron 模型架構互動式視覺化工具
+========================================
+
+Netron 是最受歡迎的深度學習模型視覺化工具，支援互動式瀏覽、
+縮放、搜尋層、查看權重等功能。
+
+方法一：線上版（無需安裝）
+  1. 前往 https://netron.app
+  2. 將 .keras 檔案拖曳到網頁上即可
+
+方法二：桌面版
+  pip install netron
+  netron /path/to/model.keras
+
+方法三：Python API
+  import netron
+  netron.start('/path/to/model.keras')
+  # 會自動在瀏覽器中開啟
+
+支援格式：
+  .keras, .h5, .pb, .tflite, .onnx, .pt, .pth 等
+
+注意事項：
+  - .keras 格式包含自訂層定義，Netron 可以正確讀取
+  - 若使用 build 模式建構的模型，需先儲存為 .keras 檔案
+========================================

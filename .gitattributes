@@ -1,0 +1,13 @@
+# 萬一未來不小心 add 到模型檔，自動走 LFS 而非 push 進 git 歷史
+*.h5 filter=lfs diff=lfs merge=lfs -text
+*.hdf5 filter=lfs diff=lfs merge=lfs -text
+*.keras filter=lfs diff=lfs merge=lfs -text
+*.pb filter=lfs diff=lfs merge=lfs -text
+*.tflite filter=lfs diff=lfs merge=lfs -text
+*.onnx filter=lfs diff=lfs merge=lfs -text
+
+# 確保文字檔案以 LF 結尾（從 Windows 帶過來的避免 CRLF 混雜）
+* text=auto eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
