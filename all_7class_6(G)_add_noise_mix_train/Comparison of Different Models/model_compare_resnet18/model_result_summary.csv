@@ -1,0 +1,2 @@
+﻿model_name,trainable_params,best_epoch,best_val_accuracy,original_test_accuracy,original_test_loss,macro_precision,macro_recall,macro_f1,weighted_precision,weighted_recall,weighted_f1,augmented_test_accuracy,robustness_gap_augmented_minus_original,training_time_seconds
+ResNet18,26137671,18,0.9978,0.997257,0.464534,0.998144,0.998094,0.998114,0.99727,0.997257,0.997257,0.996787,-0.00047,2664.48

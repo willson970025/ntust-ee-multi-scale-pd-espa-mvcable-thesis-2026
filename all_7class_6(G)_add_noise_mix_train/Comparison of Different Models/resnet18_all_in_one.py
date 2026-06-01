@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 PRPD 局部放電分類模型訓練程式
-使用 EPSANet-Large 進行七類別分類
+使用 ResNet18 進行七類別分類
 TensorFlow 2.20.0 版本
 
 修改版本：
-- 使用 EPSANet-Large 替代 ResNet50
+- 使用 ResNet18 替代 ResNet50
 - 輸入尺寸改為 180x80
 - 加入 Dropout 防止過擬合
 - 多通道特徵增強：翻轉後二值化影像 + x 方向 Sobel 梯度響應 |G_x| + y 方向 Sobel 梯度響應 |G_y|
@@ -97,301 +97,80 @@ WEIGHT_DECAY = 1e-5  # 從 1e-4 降到 1e-5
 
 
 # ============================================================================
-# EPSANet-Large 模型定義 (已加入 Weight Decay)
+# ResNet18 模型定義 (Baseline，含 Weight Decay)
 # ============================================================================
 
-@keras.saving.register_keras_serializable()
-class SEWeightModule(layers.Layer):
-    """Squeeze-and-Excitation Weight Module"""
-    def __init__(self, channels, reduction=16, weight_decay=WEIGHT_DECAY, **kwargs):
-        super(SEWeightModule, self).__init__(**kwargs)
-        self.channels = channels
-        self.reduction = reduction
-        self.weight_decay = weight_decay
-        
-    def build(self, input_shape):
-        reduced_channels = max(self.channels // self.reduction, 1)
-        self.avg_pool = layers.GlobalAveragePooling2D(keepdims=True)
-        # [修改] 為 SE 模組的 Conv2D 加入 L2 正則化
-        self.fc1 = layers.Conv2D(
-            reduced_channels, kernel_size=1, padding='same', use_bias=False,
-            kernel_regularizer=keras.regularizers.l2(self.weight_decay)
-        )
-        self.relu = layers.ReLU()
-        self.fc2 = layers.Conv2D(
-            self.channels, kernel_size=1, padding='same', use_bias=False,
-            kernel_regularizer=keras.regularizers.l2(self.weight_decay)
-        )
-        self.sigmoid = layers.Activation('sigmoid')
-        super().build(input_shape)
-        
-    def call(self, x):
-        out = self.avg_pool(x)
-        out = self.fc1(out)
-        out = self.relu(out)
-        out = self.fc2(out)
-        weight = self.sigmoid(out)
-        return weight
-    
-    def get_config(self):
-        config = super().get_config()
-        config.update({
-            'channels': self.channels, 
-            'reduction': self.reduction,
-            'weight_decay': self.weight_decay
-        })
-        return config
+def build_resnet18(input_shape=(80, 180, 3), num_classes=7, dropout_rate=0.2,
+                   weight_decay=WEIGHT_DECAY):
+    """
+    建立 ResNet18 模型（PRPD 七類別分類 baseline）
 
+    - 從頭訓練，不使用 ImageNet 預訓練權重
+    - 使用 BasicBlock，block 數 [2, 2, 2, 2]，通道 [64, 128, 256, 512]
+    - stem 與分類頭層命名與原 EPSANet 主模型一致，方便遷移學習與 t-SNE 特徵提取
+    - 所有 Conv2D / Dense 皆加上 L2 正則化 (Weight Decay)
+    """
+    reg = keras.regularizers.l2(weight_decay)
 
-@keras.saving.register_keras_serializable()
-class PSAModule(layers.Layer):
-    """Pyramid Squeeze Attention Module"""
-    def __init__(self, in_channels, out_channels, stride=1, 
-                 conv_kernels=[3, 5, 7, 9], conv_groups=[32, 32, 32, 32],
-                 weight_decay=WEIGHT_DECAY, **kwargs):
-        super(PSAModule, self).__init__(**kwargs)
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.stride = stride
-        self.conv_kernels = conv_kernels
-        self.conv_groups = conv_groups
-        self.weight_decay = weight_decay
-        self.split_channel = out_channels // 4
-        
-    def build(self, input_shape):
-        def get_valid_groups(in_ch, out_ch, desired_groups):
-            valid = desired_groups
-            while valid > 1:
-                if in_ch % valid == 0 and out_ch % valid == 0:
-                    return valid
-                valid -= 1
-            return 1
-        
-        g0 = get_valid_groups(self.in_channels, self.split_channel, self.conv_groups[0])
-        g1 = get_valid_groups(self.in_channels, self.split_channel, self.conv_groups[1])
-        g2 = get_valid_groups(self.in_channels, self.split_channel, self.conv_groups[2])
-        g3 = get_valid_groups(self.in_channels, self.split_channel, self.conv_groups[3])
-        
-        # [修改] 為 PSA 模組的所有 Conv2D 加入 L2 正則化
-        self.conv_1 = layers.Conv2D(
-            self.split_channel, kernel_size=self.conv_kernels[0],
-            padding='same', strides=self.stride, groups=g0, use_bias=False,
-            kernel_regularizer=keras.regularizers.l2(self.weight_decay)
-        )
-        self.conv_2 = layers.Conv2D(
-            self.split_channel, kernel_size=self.conv_kernels[1],
-            padding='same', strides=self.stride, groups=g1, use_bias=False,
-            kernel_regularizer=keras.regularizers.l2(self.weight_decay)
-        )
-        self.conv_3 = layers.Conv2D(
-            self.split_channel, kernel_size=self.conv_kernels[2],
-            padding='same', strides=self.stride, groups=g2, use_bias=False,
-            kernel_regularizer=keras.regularizers.l2(self.weight_decay)
-        )
-        self.conv_4 = layers.Conv2D(
-            self.split_channel, kernel_size=self.conv_kernels[3],
-            padding='same', strides=self.stride, groups=g3, use_bias=False,
-            kernel_regularizer=keras.regularizers.l2(self.weight_decay)
-        )
-        # [修改] SE 模組也傳入 weight_decay
-        self.se = SEWeightModule(self.split_channel, weight_decay=self.weight_decay)
-        super().build(input_shape)
-        
-    def call(self, x):
-        x1, x2, x3, x4 = self.conv_1(x), self.conv_2(x), self.conv_3(x), self.conv_4(x)
-        x1_se, x2_se, x3_se, x4_se = self.se(x1), self.se(x2), self.se(x3), self.se(x4)
-        
-        x_se = tf.concat([x1_se, x2_se, x3_se, x4_se], axis=-1)
-        x_se = tf.reshape(x_se, [-1, 4, self.split_channel])
-        attention_vectors = tf.nn.softmax(x_se, axis=1)
-        
-        att1 = tf.reshape(attention_vectors[:, 0:1, :], [-1, 1, 1, self.split_channel])
-        att2 = tf.reshape(attention_vectors[:, 1:2, :], [-1, 1, 1, self.split_channel])
-        att3 = tf.reshape(attention_vectors[:, 2:3, :], [-1, 1, 1, self.split_channel])
-        att4 = tf.reshape(attention_vectors[:, 3:4, :], [-1, 1, 1, self.split_channel])
-        
-        out = tf.concat([x1*att1, x2*att2, x3*att3, x4*att4], axis=-1)
-        return out
-    
-    def get_config(self):
-        config = super().get_config()
-        config.update({
-            'in_channels': self.in_channels, 'out_channels': self.out_channels,
-            'stride': self.stride, 'conv_kernels': self.conv_kernels, 
-            'conv_groups': self.conv_groups, 'weight_decay': self.weight_decay
-        })
-        return config
-
-
-@keras.saving.register_keras_serializable()
-class EPSABlock(layers.Layer):
-    """Efficient Pyramid Squeeze Attention Block"""
-    expansion = 4
-    
-    def __init__(self, in_channels, out_channels, stride=1, use_downsample=False,
-                 conv_kernels=[3, 5, 7, 9], conv_groups=[32, 32, 32, 32],
-                 weight_decay=WEIGHT_DECAY, **kwargs):
-        super(EPSABlock, self).__init__(**kwargs)
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.stride = stride
-        self.conv_kernels = conv_kernels
-        self.conv_groups = conv_groups
-        self.use_downsample = use_downsample
-        self.weight_decay = weight_decay
-        
-    def build(self, input_shape):
-        # [修改] 為 EPSABlock 的所有 Conv2D 加入 L2 正則化
-        self.conv1 = layers.Conv2D(
-            self.out_channels, kernel_size=1, use_bias=False,
-            kernel_regularizer=keras.regularizers.l2(self.weight_decay)
-        )
-        self.bn1 = layers.BatchNormalization()
-        # [修改] PSA 模組傳入 weight_decay
-        self.psa = PSAModule(
-            self.out_channels, self.out_channels, stride=self.stride,
-            conv_kernels=self.conv_kernels, conv_groups=self.conv_groups,
-            weight_decay=self.weight_decay
-        )
-        self.bn2 = layers.BatchNormalization()
-        self.conv3 = layers.Conv2D(
-            self.out_channels * self.expansion, kernel_size=1, use_bias=False,
-            kernel_regularizer=keras.regularizers.l2(self.weight_decay)
-        )
-        self.bn3 = layers.BatchNormalization()
-        self.relu = layers.ReLU()
-        
-        if self.use_downsample:
-            # [修改] Downsample Conv2D 也加入 L2 正則化
-            self.downsample_conv = layers.Conv2D(
-                self.out_channels * self.expansion,
-                kernel_size=1, strides=self.stride, use_bias=False,
-                kernel_regularizer=keras.regularizers.l2(self.weight_decay)
-            )
-            self.downsample_bn = layers.BatchNormalization()
-        super().build(input_shape)
-        
-    def call(self, x, training=None):
+    def basic_block(x, planes, stride, name):
         identity = x
-        out = self.relu(self.bn1(self.conv1(x), training=training))
-        out = self.relu(self.bn2(self.psa(out), training=training))
-        out = self.bn3(self.conv3(out), training=training)
-        
-        if self.use_downsample:
-            identity = self.downsample_bn(self.downsample_conv(x), training=training)
-        
-        return self.relu(out + identity)
-    
-    def get_config(self):
-        config = super().get_config()
-        config.update({
-            'in_channels': self.in_channels, 'out_channels': self.out_channels,
-            'stride': self.stride, 'conv_kernels': self.conv_kernels,
-            'conv_groups': self.conv_groups, 'use_downsample': self.use_downsample,
-            'weight_decay': self.weight_decay
-        })
-        return config
 
+        out = layers.Conv2D(planes, 3, strides=stride, padding='same', use_bias=False,
+                            kernel_regularizer=reg, name=f'{name}_conv1')(x)
+        out = layers.BatchNormalization(name=f'{name}_bn1')(out)
+        out = layers.ReLU(name=f'{name}_relu1')(out)
 
-def build_epsanet_large(input_shape=(80, 180, 3), num_classes=7, dropout_rate=0.2, 
-                        weight_decay=WEIGHT_DECAY):
-    """
-    建立 EPSANet-Large 模型（適用於 PRPD 分類）
-    
-    重要：層命名與 2_epsanet_large.py 一致，方便遷移學習時複製權重
-    
-    Args:
-        input_shape: 輸入張量形狀 (H, W, C)
-        num_classes: 分類類別數
-        dropout_rate: Dropout 比率
-        weight_decay: L2 正則化係數 (新增參數)
-        
-    Returns:
-        Keras Model
-    """
-    conv_groups = [32, 32, 32, 32]
-    layers_config = [3, 4, 6, 3]
-    channels = [128, 256, 512, 1024]  # EPSANet-Large 通道配置
+        out = layers.Conv2D(planes, 3, strides=1, padding='same', use_bias=False,
+                            kernel_regularizer=reg, name=f'{name}_conv2')(out)
+        out = layers.BatchNormalization(name=f'{name}_bn2')(out)
 
-    # 各層的 kernel 配置（根據特徵圖尺寸調整）
-    # 特徵圖尺寸變化: 輸入 80x180 -> Stem 40x90 -> MaxPool 20x45
-    # Layer1: 20x45 (stride=1), Layer2: 10x23 (stride=2)
-    # Layer3: 5x12 (stride=2), Layer4: 3x6 (stride=2)
-    # 過大的 kernel 會產生大量 padding，降低有效感受野
-    layer_kernels = [
-        [3, 5, 7, 9],  # Layer1: 20x45，維持原設計
-        [3, 5, 7, 9],  # Layer2: 10x23，維持原設計
-        [3, 3, 5, 5],  # Layer3: 5x12，縮小避免超過高度 5
-        [3, 3, 3, 3],  # Layer4: 3x6，全部用 3x3 配合 3x6 特徵圖
-    ]
+        in_channels = identity.shape[-1]
+        if stride != 1 or in_channels != planes:
+            identity = layers.Conv2D(planes, 1, strides=stride, use_bias=False,
+                                     kernel_regularizer=reg, name=f'{name}_downsample_conv')(identity)
+            identity = layers.BatchNormalization(name=f'{name}_downsample_bn')(identity)
+
+        out = layers.Add(name=f'{name}_add')([out, identity])
+        out = layers.ReLU(name=f'{name}_relu2')(out)
+        return out
+
+    blocks = [2, 2, 2, 2]
+    channels = [64, 128, 256, 512]
+    strides = [1, 2, 2, 2]
 
     inputs = layers.Input(shape=input_shape)
 
-    # Stem（命名與 2_epsanet_large.py 一致）
-    # [修改] stem_conv 加入 L2 正則化
+    # Stem（命名與原 EPSANet 主模型一致）
     x = layers.Conv2D(64, kernel_size=7, strides=2, padding='same', use_bias=False,
                       kernel_initializer='he_normal', name='stem_conv',
-                      kernel_regularizer=keras.regularizers.l2(weight_decay))(inputs)
+                      kernel_regularizer=reg)(inputs)
     x = layers.BatchNormalization(name='stem_bn')(x)
     x = layers.ReLU(name='stem_relu')(x)
     x = layers.MaxPooling2D(pool_size=3, strides=2, padding='same', name='stem_pool')(x)
 
-    # Layer 1
-    in_ch = 64
-    for i in range(layers_config[0]):
-        use_ds = (i == 0) and (in_ch != channels[0] * 4)
-        x = EPSABlock(in_ch if i == 0 else channels[0] * 4, channels[0], stride=1,
-                      use_downsample=use_ds, conv_kernels=layer_kernels[0],
-                      conv_groups=conv_groups, weight_decay=weight_decay,
-                      name=f'layer1_block{i}')(x)
+    # 四個 stage
+    for stage_idx in range(4):
+        for block_idx in range(blocks[stage_idx]):
+            stride = strides[stage_idx] if block_idx == 0 else 1
+            x = basic_block(x, channels[stage_idx], stride,
+                            name=f'layer{stage_idx + 1}_block{block_idx}')
 
-    # Layer 2
-    prev_ch = channels[0] * 4
-    for i in range(layers_config[1]):
-        stride = 2 if i == 0 else 1
-        use_ds = (i == 0)
-        x = EPSABlock(prev_ch if i == 0 else channels[1] * 4, channels[1], stride=stride,
-                      use_downsample=use_ds, conv_kernels=layer_kernels[1],
-                      conv_groups=conv_groups, weight_decay=weight_decay,
-                      name=f'layer2_block{i}')(x)
-
-    # Layer 3
-    prev_ch = channels[1] * 4
-    for i in range(layers_config[2]):
-        stride = 2 if i == 0 else 1
-        use_ds = (i == 0)
-        x = EPSABlock(prev_ch if i == 0 else channels[2] * 4, channels[2], stride=stride,
-                      use_downsample=use_ds, conv_kernels=layer_kernels[2],
-                      conv_groups=conv_groups, weight_decay=weight_decay,
-                      name=f'layer3_block{i}')(x)
-
-    # Layer 4
-    prev_ch = channels[2] * 4
-    for i in range(layers_config[3]):
-        stride = 2 if i == 0 else 1
-        use_ds = (i == 0)
-        x = EPSABlock(prev_ch if i == 0 else channels[3] * 4, channels[3], stride=stride,
-                      use_downsample=use_ds, conv_kernels=layer_kernels[3],
-                      conv_groups=conv_groups, weight_decay=weight_decay,
-                      name=f'layer4_block{i}')(x)
-
-    # [新增] Grad-CAM 專用層：確保梯度能正確追蹤
-    # 使用 linear activation（恆等函數），不影響模型計算結果
+    # Grad-CAM 專用層（linear activation，不影響輸出）
     x = layers.Activation('linear', name='gradcam_target')(x)
 
-    # 分類頭（命名與遷移學習時一致）
+    # 分類頭（命名與原 EPSANet 主模型完全一致，供 t-SNE 直接使用）
     x = layers.GlobalAveragePooling2D(name='global_avg_pool')(x)
     x = layers.Dropout(dropout_rate, name='head_dropout')(x)
-    x = layers.Dense(1024, kernel_regularizer=keras.regularizers.l2(weight_decay), name='head_fc1')(x)
+    x = layers.Dense(1024, kernel_regularizer=reg, name='head_fc1')(x)
     x = layers.BatchNormalization(name='head_bn1')(x)
     x = layers.ReLU(name='head_relu1')(x)
-    x = layers.Dense(512, kernel_regularizer=keras.regularizers.l2(weight_decay), name='head_fc2')(x)
+    x = layers.Dense(512, kernel_regularizer=reg, name='head_fc2')(x)
     x = layers.BatchNormalization(name='head_bn2')(x)
     x = layers.ReLU(name='head_relu2')(x)
     outputs = layers.Dense(num_classes, activation='softmax', name='predictions')(x)
-    
-    model = Model(inputs=inputs, outputs=outputs, name='EPSANet_Large')
-    
+
+    model = Model(inputs=inputs, outputs=outputs, name='ResNet18_PRPD')
+
     return model
 
 
@@ -462,11 +241,11 @@ class_to_idx = {name: idx for idx, name in enumerate(class_names)}
 chinese_labels = ['空洞', '碳痕', '接頭異常', '不規則邊緣', '典型電暈放電', '典型內部放電', '典型表面放電']
 
 # 資料路徑和輸出資料夾
-data_dir = '/home/cckuo/m11307u09/GG/1126/data_original G' 
-output_dir = '/home/cckuo/m11307u09/GG/1126/epsanet50/all in one/all_7class_6(G)_add_noise_mix_train'
+data_dir = '/home/wills/GG/data_original' 
+output_dir = '/home/wills/GG/0601/model_compare_resnet18'
 
 print("=" * 80)
-print(f"EPSANet-Large 7類別模型訓練 - 輸入尺寸: {INPUT_WIDTH}x{INPUT_HEIGHT} - 含 Dropout + Weight Decay")
+print(f"ResNet18 7類別模型訓練 - 輸入尺寸: {INPUT_WIDTH}x{INPUT_HEIGHT} - 含 Dropout + Weight Decay")
 print("=" * 80)
 
 os.makedirs(output_dir, exist_ok=True)
@@ -929,9 +708,9 @@ print(f"  測試集（原始，主要效能）: {test_size} 張 (不擴增)")
 print(f"  測試集（擴增，僅作穩健性觀察）: {augmented_test_size} 張")
 
 # ============================================================================
-# 建立 EPSANet-Large 模型
+# 建立 ResNet18 模型
 # ============================================================================
-model = build_epsanet_large(
+model = build_resnet18(
     input_shape=INPUT_SHAPE,
     num_classes=num_classes,
     dropout_rate=DROPOUT_RATE,
@@ -956,12 +735,11 @@ model.compile(
     jit_compile=True  # [優化] XLA 編譯加速
 )
 
-print(f"\n模型架構 (EPSANet-Large + Dropout + Weight Decay + 多通道特徵增強):")
+print(f"\n模型架構 (ResNet18 Baseline + Dropout + Weight Decay + 多通道特徵增強):")
 print(f"  輸入尺寸: {INPUT_SHAPE} (HxWxC)")
-print(f"  Base Model: EPSANet-Large")
-print(f"  通道配置: [128, 256, 512, 1024] (Large 版本)")
-print(f"  PSA Groups: [32, 32, 32, 32]")
-print(f"  架構: EPSANet-Large -> GAP -> Dropout({DROPOUT_RATE}) -> Dense(1024) -> BN -> ReLU")
+print(f"  Base Model: ResNet18 (BasicBlock, blocks=[2, 2, 2, 2])")
+print(f"  通道配置: [64, 128, 256, 512]")
+print(f"  架構: ResNet18 -> GAP -> Dropout({DROPOUT_RATE}) -> Dense(1024) -> BN -> ReLU")
 print(f"         -> Dense(512) -> BN -> ReLU -> Dense({num_classes})")
 print(f"  L2 Regularization (Weight Decay): {WEIGHT_DECAY} (應用於所有 Conv2D 和 Dense 層)")  # [修改] 更新說明
 print(f"  Loss: CategoricalCrossentropy (label_smoothing=0.05)")
@@ -976,7 +754,7 @@ print(f"\n可訓練參數量: {trainable_params:,}")
 # ============================================================================
 # 回調函數
 # ============================================================================
-model_path = os.path.join(output_dir, 'best_model_epsanet_large_dropout_wd_180x80.keras')
+model_path = os.path.join(output_dir, 'best_model_resnet18_dropout_wd_180x80.keras')
 
 # monitor='val_accuracy'，其 val_accuracy 來自「未擴增驗證集」(val_ds)，
 # 因此最佳權重是依模型在原始相位分佈上的表現挑選，而非擴增驗證集。
@@ -992,7 +770,7 @@ callbacks = [checkpoint]
 
 # 訓練
 print(f"\n{'='*80}")
-print(f"開始訓練 EPSANet-Large (含 Dropout + Weight Decay + 多通道特徵增強)...")
+print(f"開始訓練 ResNet18 (含 Dropout + Weight Decay + 多通道特徵增強)...")
 print(f"{'='*80}\n")
 
 history = model.fit(
@@ -1083,7 +861,7 @@ plt.plot(history.history['loss'], label='Train Loss', linewidth=2)
 plt.plot(history.history['val_loss'], label='Val Loss', linewidth=2)
 plt.xlabel('Epoch', fontsize=12)
 plt.ylabel('Loss', fontsize=12)
-plt.title(f'EPSANet-Large Loss Curve (Input: {INPUT_WIDTH}x{INPUT_HEIGHT}, WD={WEIGHT_DECAY})', fontsize=14, fontweight='bold')
+plt.title(f'ResNet18 Loss Curve (Input: {INPUT_WIDTH}x{INPUT_HEIGHT}, WD={WEIGHT_DECAY})', fontsize=14, fontweight='bold')
 plt.legend(fontsize=11)
 plt.grid(True, alpha=0.3)
 
@@ -1092,7 +870,7 @@ plt.plot(history.history['accuracy'], label='Train Acc', linewidth=2)
 plt.plot(history.history['val_accuracy'], label='Val Acc', linewidth=2)
 plt.xlabel('Epoch', fontsize=12)
 plt.ylabel('Accuracy', fontsize=12)
-plt.title(f'EPSANet-Large Accuracy Curve (Input: {INPUT_WIDTH}x{INPUT_HEIGHT}, WD={WEIGHT_DECAY})', fontsize=14, fontweight='bold')
+plt.title(f'ResNet18 Accuracy Curve (Input: {INPUT_WIDTH}x{INPUT_HEIGHT}, WD={WEIGHT_DECAY})', fontsize=14, fontweight='bold')
 plt.legend(fontsize=11)
 plt.grid(True, alpha=0.3)
 
@@ -1103,7 +881,7 @@ plt.plot(history.history['recall'], label='Train Recall', linewidth=2, linestyle
 plt.plot(history.history['val_recall'], label='Val Recall', linewidth=2, linestyle='--')
 plt.xlabel('Epoch', fontsize=12)
 plt.ylabel('Score', fontsize=12)
-plt.title('EPSANet-Large Precision & Recall Curve', fontsize=14, fontweight='bold')
+plt.title('ResNet18 Precision & Recall Curve', fontsize=14, fontweight='bold')
 plt.legend(fontsize=10)
 plt.grid(True, alpha=0.3)
 
@@ -1114,13 +892,13 @@ plt.plot(loss_gap, label='Val-Train Loss Gap', linewidth=2)
 plt.plot(acc_gap, label='Val-Train Acc Gap', linewidth=2)
 plt.xlabel('Epoch', fontsize=12)
 plt.ylabel('Gap (Val - Train)', fontsize=12)
-plt.title('EPSANet-Large Overfitting Analysis', fontsize=14, fontweight='bold')
+plt.title('ResNet18 Overfitting Analysis', fontsize=14, fontweight='bold')
 plt.legend(fontsize=11)
 plt.grid(True, alpha=0.3)
 plt.axhline(y=0, color='black', linestyle='--', alpha=0.5)
 
 plt.tight_layout()
-save_path = os.path.join(output_dir, 'training_curves_epsanet_large_dropout_wd_180x80.png')  # [修改] 檔名加上 _wd
+save_path = os.path.join(output_dir, 'training_curves_resnet18_dropout_wd_180x80.png')  # [修改] 檔名加上 _wd
 plt.savefig(save_path, dpi=300, bbox_inches='tight')
 plt.close()
 
@@ -1171,7 +949,7 @@ log_path = os.path.join(output_dir, 'training_log.txt')
 with open(log_path, 'w', encoding='utf-8') as f:
     # ========== 標題 ==========
     f.write("=" * 80 + "\n")
-    f.write("EPSANet-Large 訓練日誌\n")
+    f.write("ResNet18 訓練日誌\n")
     f.write("=" * 80 + "\n\n")
 
     # ========== 基本資訊 ==========
@@ -1183,10 +961,10 @@ with open(log_path, 'w', encoding='utf-8') as f:
 
     # ========== 模型配置 ==========
     f.write("【模型配置】\n")
-    f.write(f"架構: EPSANet-Large\n")
+    f.write(f"架構: ResNet18\n")
     f.write(f"輸入: {INPUT_WIDTH}x{INPUT_HEIGHT}x3（翻轉後二值化影像 + x 方向 Sobel 梯度響應 |G_x| + y 方向 Sobel 梯度響應 |G_y|）\n")
     f.write(f"參數量: {trainable_params:,}\n")
-    f.write(f"通道: [128, 256, 512, 1024] -> GAP(4096) -> FC(1024) -> FC(512) -> {num_classes}類\n")
+    f.write(f"通道: [64, 128, 256, 512] -> GAP(512) -> FC(1024) -> FC(512) -> {num_classes}類\n")
     f.write(f"正則化: Dropout={DROPOUT_RATE}, L2={WEIGHT_DECAY}, LabelSmoothing=0.05\n\n")
 
     # ========== 訓練配置 ==========
@@ -1211,6 +989,12 @@ with open(log_path, 'w', encoding='utf-8') as f:
     f.write('checkpoint_monitor = "val_accuracy on unaugmented validation set"\n')
     f.write("說明: 訓練集擴增；驗證集未擴增（主要 validation / checkpoint / 最佳權重依據）；\n")
     f.write("      原始測試集為主要效能；擴增測試集僅作相位平移與雜訊擾動下的穩健性觀察。\n\n")
+
+    # ========== 模型比較說明 ==========
+    f.write("【模型比較說明】\n")
+    f.write("本模型作為第 4.5 節不同模型辨識效能比較之 baseline。為確保比較公平性，"
+            "本程式沿用 EPSANet-Large 主模型相同之資料分割、三通道輸入特徵、訓練集擴增策略、"
+            "未擴增驗證集、最佳權重選取方式與原始測試集評估流程，僅將模型骨幹替換為 ResNet18。\n\n")
 
     # ========== 類別權重 ==========
     f.write("【類別權重】\n")
@@ -1365,6 +1149,54 @@ with open(log_path, 'w', encoding='utf-8') as f:
 
 print(f"\n訓練日誌已保存: {log_path}")
 print(f"最佳模型已保存: {model_path}")
+
+# ============================================================================
+# [新增] 模型比較 summary CSV（論文 4.5 不同模型辨識效能比較）
+# ============================================================================
+# 主要比較指標：original_test_accuracy / macro_f1 / weighted_f1（皆以原始未擴增測試集為準）
+# augmented_test_accuracy 僅作穩健性觀察，不作為主要效能依據
+macro_precision, macro_recall, macro_f1, _ = precision_recall_fscore_support(
+    test_labels, pred_labels, average='macro'
+)
+weighted_precision, weighted_recall, weighted_f1, _ = precision_recall_fscore_support(
+    test_labels, pred_labels, average='weighted'
+)
+best_epoch_summary = int(np.argmax(history.history['val_accuracy']) + 1)
+best_val_acc_summary = float(max(history.history['val_accuracy']))
+
+summary_row = {
+    'model_name': 'ResNet18',
+    'trainable_params': int(trainable_params),
+    'best_epoch': best_epoch_summary,
+    'best_val_accuracy': round(best_val_acc_summary, 6),
+    'original_test_accuracy': round(float(test_acc_original), 6),
+    'original_test_loss': round(float(test_loss), 6),
+    'macro_precision': round(float(macro_precision), 6),
+    'macro_recall': round(float(macro_recall), 6),
+    'macro_f1': round(float(macro_f1), 6),
+    'weighted_precision': round(float(weighted_precision), 6),
+    'weighted_recall': round(float(weighted_recall), 6),
+    'weighted_f1': round(float(weighted_f1), 6),
+    'augmented_test_accuracy': round(float(test_acc_augmented), 6),
+    'robustness_gap_augmented_minus_original': round(float(test_acc_augmented - test_acc_original), 6),
+    'training_time_seconds': round(float(training_duration), 2),
+}
+
+summary_columns = [
+    'model_name', 'trainable_params', 'best_epoch', 'best_val_accuracy',
+    'original_test_accuracy', 'original_test_loss',
+    'macro_precision', 'macro_recall', 'macro_f1',
+    'weighted_precision', 'weighted_recall', 'weighted_f1',
+    'augmented_test_accuracy', 'robustness_gap_augmented_minus_original',
+    'training_time_seconds',
+]
+
+summary_csv_path = os.path.join(output_dir, 'model_result_summary.csv')
+pd.DataFrame([summary_row], columns=summary_columns).to_csv(
+    summary_csv_path, index=False, encoding='utf-8-sig'
+)
+print(f"\n模型比較 summary CSV 已保存: {summary_csv_path}")
+
 
 # ============================================================================
 # t-SNE 特徵視覺化
@@ -1526,7 +1358,7 @@ print("="*80)
 print(f"\n" + "="*80)
 print("訓練摘要")
 print("="*80)
-print(f"  模型: EPSANet-Large (含 Weight Decay)")
+print(f"  模型: ResNet18 (含 Weight Decay)")
 print(f"  原始測試集準確率（主要效能）: {test_acc_original:.4f} ({test_acc_original*100:.2f}%)")
 print(f"  擴增測試集準確率（僅穩健性觀察）: {test_acc_augmented:.4f} ({test_acc_augmented*100:.2f}%)")
 print(f"  訓練輪數: {actual_epochs}")

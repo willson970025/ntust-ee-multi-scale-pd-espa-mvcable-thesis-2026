@@ -14,11 +14,27 @@
 
 - **Backbone**：EPSANet-Large（from scratch）
 - **通道配置**：[128, 256, 512, 1024]，PSA Groups：[32, 32, 32, 32]
-- **輸入**：180 × 80 × 3（原始圖 + Sobel X + Sobel Y）
+- **輸入**：180 × 80 × 3
+  - 通道 1：翻轉後二值化影像（PRPD 訊號點從黑色翻為白色，讓模型學到正確的訊號分佈）
+  - 通道 2：x 方向 Sobel 梯度響應 |G<sub>x</sub>|
+  - 通道 3：y 方向 Sobel 梯度響應 |G<sub>y</sub>|
 - **可訓練參數**：55,472,839
 - **正則化**：Dropout 0.2、L2 Weight Decay 1e-5、Label Smoothing 0.05
 - **優化器**：SGD（momentum 0.9, nesterov）+ Warmup + Cosine Decay
-- **資料擴增**：14× 循環水平位移 + 隨機底部噪聲
+- **資料擴增**：14× 循環水平位移 + 隨機底部噪聲（噪聲類型 1–8）
+
+## 資料使用邏輯（重要）
+
+為避免「擴增驗證集」造成 val_accuracy 失真，本研究在主模型與所有對照模型上均採用以下邏輯：
+
+| 階段 | 是否擴增 | 用途 |
+|---|---|---|
+| 訓練集（Train） | 擴增 14× | 模型參數更新（每 epoch 隨機相位平移 + 隨機底部噪聲） |
+| 驗證集（Val） | **未擴增** | `validation_data` / `ModelCheckpoint(monitor='val_accuracy')` 之最佳權重選取唯一依據 |
+| 原始測試集（Test） | 未擴增 | **主要效能依據** |
+| 擴增測試集 | 擴增 14× | 僅作相位平移與雜訊擾動下的「穩健性觀察」，非主要效能 |
+
+`val_accuracy` 反映模型於原始相位分佈上的表現，而非擴增資料；最佳權重亦依未擴增驗證集挑選。對照模型（ResNet18、ResNet50）沿用相同邏輯以確保公平比較。
 
 ## 環境需求
 
@@ -40,7 +56,7 @@ pip install tensorflow==2.20.0 scikit-learn opencv-python matplotlib seaborn pan
 
 ## 如何重現訓練
 
-### 單次訓練（主模型）
+### 主模型（EPSANet-Large）
 ```bash
 cd "all_7class_6(G)_add_noise_mix_train"
 python epsanet50_all_in_one.py
@@ -52,24 +68,32 @@ cd all_7class_6_add_noise_mix_train_kfold
 python epsanet50_all_in_one_kfold.py
 ```
 
+### 對照模型（第 4.5 節 baseline 比較）
+```bash
+cd "all_7class_6(G)_add_noise_mix_train/Comparison of Different Models"
+python resnet18_all_in_one.py     # ResNet18 baseline
+python resnet50_all_in_one.py     # ResNet50 baseline
+```
+所有對照模型沿用 EPSANet-Large 主模型相同之資料分割、三通道輸入特徵、訓練集擴增策略、未擴增驗證集、最佳權重選取方式與原始測試集評估流程，僅替換模型骨幹。
+
 ### 推論 / 批次預測
 ```bash
 cd "all_7class_6(G)_add_noise_mix_train"
 python batch_predict_and_classify_performance_0224.py
 ```
 
-> 注意：訓練所需的 PRPD 圖資料集未隨 repo 釋出，請洽論文作者。模型權重（`.keras`，每個約 425–637 MB）亦未上傳，可依上述指令重新訓練。
+> 注意：訓練所需的 PRPD 圖資料集未隨 repo 釋出，請洽論文作者。模型權重（`.keras`，主模型約 637 MB、各 fold 與對照模型約 141–425 MB）亦未上傳，可依上述指令重新訓練。
 
 ## 訓練成果摘要
 
-### 主模型（單次訓練）
+### 主模型（單次訓練，EPSANet-Large）
 | 指標 | 數值 |
 |---|---|
-| Best Val Accuracy | **0.9978**（Epoch 67） |
-| 原始測試集 Accuracy | **0.9995** |
+| Best Val Accuracy（未擴增驗證集） | **0.9978**（Epoch 67） |
+| 原始測試集 Accuracy（主要效能） | **0.9995** |
 | 平均 F1 | **0.9996** |
-| 擴增測試集 Accuracy（25,522 張） | 0.9981 |
-| 訓練時長 | 3h 20m |
+| 擴增測試集 Accuracy（25,522 張，穩健性觀察） | 0.9981 |
+| 訓練時長 | 2h 58m |
 
 ### 5-Fold 交叉驗證
 | Fold | Val Accuracy |
@@ -94,6 +118,18 @@ python batch_predict_and_classify_performance_0224.py
 | ID 典型內部 | 1.0000 | 1.0000 | 135 |
 | SD 典型表面 | 1.0000 | 1.0000 | 135 |
 
+### 不同模型骨幹比較（第 4.5 節）
+
+固定相同資料分割、三通道輸入、未擴增驗證集與最佳權重選取流程，僅替換 backbone：
+
+| 模型 | 參數量 | Best Epoch | Val Acc | 原始 Test Acc | Macro F1 | 擴增 Test Acc | 訓練時間 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **EPSANet-Large（本研究）** | 55,472,839 | 67 | **0.9978** | **0.9995** | **0.9996** | 0.9981 | 2h 58m |
+| ResNet50 | 12,233,287 | 62 | 0.9983 | 0.9989 | 0.9992 | 0.9982 | 1h 0m |
+| ResNet18 | 26,137,671 | 18 | 0.9978 | 0.9973 | 0.9981 | 0.9968 | 0h 44m |
+
+EPSANet-Large 在原始測試集 Accuracy 與 Macro F1 上同時取得最高，驗證 PSA 多分組金字塔注意力於 PRPD 多尺度特徵之有效性。
+
 ## Repo 結構
 
 ```
@@ -106,7 +142,18 @@ python batch_predict_and_classify_performance_0224.py
 │   ├── model_architecture_output/               # 架構輸出
 │   ├── tsne/                                    # t-SNE 視覺化
 │   ├── training_log.txt
-│   └── *.png                                    # confusion matrix / training curves
+│   ├── *.png                                    # confusion matrix / training curves
+│   └── Comparison of Different Models/          # 不同模型骨幹比較（第 4.5 節）
+│       ├── resnet18_all_in_one.py               # ResNet18 baseline 訓練程式
+│       ├── resnet50_all_in_one.py               # ResNet50 baseline 訓練程式
+│       ├── model_compare_resnet18/              # ResNet18 結果（權重 .keras 已排除）
+│       │   ├── training_log.txt
+│       │   ├── model_result_summary.csv
+│       │   └── *.png                            # confusion matrix / training curves / t-SNE
+│       └── model_compare_resnet50/              # ResNet50 結果（權重 .keras 已排除）
+│           ├── training_log.txt
+│           ├── model_result_summary.csv
+│           └── *.png
 └── all_7class_6_add_noise_mix_train_kfold/      # 5-Fold 交叉驗證
     ├── epsanet50_all_in_one_kfold.py
     ├── fold_{1..5}/                             # 各 fold 結果 PNG（權重 .keras 已排除）

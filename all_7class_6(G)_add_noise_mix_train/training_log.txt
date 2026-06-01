@@ -3,14 +3,14 @@ EPSANet-Large 訓練日誌
 ================================================================================
 
 【基本資訊】
-開始時間: 2026-02-04 04:19:04
-結束時間: 2026-02-04 07:39:01
-訓練時長: 3:19:57
+開始時間: 2026-06-01 23:57:27
+結束時間: 2026-06-02 02:55:54
+訓練時長: 2:58:26
 資料集: data_original G
 
 【模型配置】
 架構: EPSANet-Large
-輸入: 180x80x3 (多通道: 原圖+SobelX+SobelY)
+輸入: 180x80x3（翻轉後二值化影像 + x 方向 Sobel 梯度響應 |G_x| + y 方向 Sobel 梯度響應 |G_y|）
 參數量: 55,472,839
 通道: [128, 256, 512, 1024] -> GAP(4096) -> FC(1024) -> FC(512) -> 7類
 正則化: Dropout=0.2, L2=1e-05, LabelSmoothing=0.05
@@ -18,12 +18,22 @@ EPSANet-Large 訓練日誌
 【訓練配置】
 Batch: 128, Epochs: 100 (實際: 100)
 優化器: SGD (momentum=0.9, nesterov=True)
-學習率: 0->0.002->1e-05 (Warmup 9270 steps + CosineDecay)
+學習率: 0->0.002->1e-05 (Warmup 9280 steps + CosineDecay)
 擴增: 14x循環位移 + 8張噪聲/組
 
 【資料集】
 原始: Train=8478, Val=1818, Test=1823 (共12119張)
-擴增後: Train=118692, Val=25452
+訓練集擴增後: 118692 張
+驗證集未擴增，共 1818 張（主要 validation 指標來源）
+
+【資料使用邏輯】
+train_augment = true
+validation_augment = false
+test_augment_for_main_eval = false
+augmented_test_for_robustness_only = true
+checkpoint_monitor = "val_accuracy on unaugmented validation set"
+說明: 訓練集擴增；驗證集未擴增（主要 validation / checkpoint / 最佳權重依據）；
+      原始測試集為主要效能；擴增測試集僅作相位平移與雜訊擾動下的穩健性觀察。
 
 【類別權重】
   AH: 0.6747 [!]過低
