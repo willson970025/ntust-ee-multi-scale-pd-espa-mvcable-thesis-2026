@@ -9,9 +9,9 @@ ResNet50 訓練日誌
 資料集: data_original G
 
 【模型配置】
-架構: ResNet18
+架構: ResNet50
 輸入: 180x80x3（翻轉後二值化影像 + x 方向 Sobel 梯度響應 |G_x| + y 方向 Sobel 梯度響應 |G_y|）
-參數量: 12,233,287
+參數量: 26,137,671
 通道: [256, 512, 1024, 2048] -> GAP(2048) -> FC(1024) -> FC(512) -> 7類
 正則化: Dropout=0.2, L2=1e-05, LabelSmoothing=0.05
 
