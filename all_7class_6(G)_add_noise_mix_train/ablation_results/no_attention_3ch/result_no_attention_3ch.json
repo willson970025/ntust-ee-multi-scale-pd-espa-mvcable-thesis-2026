@@ -1,0 +1,239 @@
+{
+  "exp_name": "no_attention_3ch",
+  "attention_mode": "no_attention",
+  "input_mode": "inv_gx_gy",
+  "input_channels": 3,
+  "trainable_params": 55433543,
+  "best_epoch": 17,
+  "best_val_accuracy": 0.9966996908187866,
+  "final_train_loss": 0.5691553950309753,
+  "final_train_accuracy": 0.9999831318855286,
+  "final_val_loss": 0.5814817547798157,
+  "final_val_accuracy": 0.9961495995521545,
+  "original_loss": 0.5851205587387085,
+  "original": {
+    "accuracy": 0.9972572682391662,
+    "macro_precision": 0.998143885221445,
+    "macro_recall": 0.9980938054646896,
+    "macro_f1": 0.9981143926814555,
+    "weighted_precision": 0.9972697302510961,
+    "weighted_recall": 0.9972572682391662,
+    "weighted_f1": 0.9972570246636671,
+    "per_class_precision": [
+      0.9897172236503856,
+      0.997289972899729,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "per_class_recall": [
+      0.9974093264248705,
+      0.989247311827957,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "per_class_f1": [
+      0.9935483870967742,
+      0.9932523616734144,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "per_class_support": [
+      386,
+      372,
+      237,
+      288,
+      270,
+      135,
+      135
+    ],
+    "confusion_matrix": [
+      [
+        385,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        4,
+        368,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        237,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        288,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        270,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        135,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        135
+      ]
+    ]
+  },
+  "augmented": {
+    "accuracy": 0.9964736305932137,
+    "macro_precision": 0.9974247191474287,
+    "macro_recall": 0.9974156557714735,
+    "macro_f1": 0.9974176273786891,
+    "weighted_precision": 0.996479736403933,
+    "weighted_recall": 0.9964736305932137,
+    "weighted_f1": 0.9964731421048914,
+    "per_class_precision": [
+      0.9893244984354869,
+      0.9949768160741885,
+      1.0,
+      0.9992565055762082,
+      1.0,
+      0.9984152139461173,
+      1.0
+    ],
+    "per_class_recall": [
+      0.9946336047372317,
+      0.988863287250384,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.9984126984126984
+    ],
+    "per_class_f1": [
+      0.9919719479560763,
+      0.9919106317411402,
+      1.0,
+      0.9996281145407214,
+      1.0,
+      0.9992069785884219,
+      0.9992057188244639
+    ],
+    "per_class_support": [
+      5404,
+      5208,
+      3318,
+      4032,
+      3780,
+      1890,
+      1890
+    ],
+    "confusion_matrix": [
+      [
+        5375,
+        26,
+        0,
+        3,
+        0,
+        0,
+        0
+      ],
+      [
+        58,
+        5150,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        3318,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        4032,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        3780,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1890,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        1887
+      ]
+    ]
+  },
+  "robustness_gap": -0.0007836376459524619,
+  "output_dir": "/home/cckuo/m11307u09/GG/1126/epsanet50/all in one/all_7class_7(G)_add_noise_mix_train/ablation_results/no_attention_3ch",
+  "model_path": "/home/cckuo/m11307u09/GG/1126/epsanet50/all in one/all_7class_7(G)_add_noise_mix_train/ablation_results/no_attention_3ch/best_model_no_attention_3ch.keras",
+  "reused_from": null,
+  "determinism_note": "本消融實驗固定 RANDOM_STATE=42，並設定 random / numpy / tensorflow 種子；但未啟用 tf.config.experimental.enable_op_determinism()，以避免 GPU MaxPool gradient deterministic kernel 與訓練流程衝突。因此 GPU 訓練結果可能仍存在極小浮點差異。"
+}

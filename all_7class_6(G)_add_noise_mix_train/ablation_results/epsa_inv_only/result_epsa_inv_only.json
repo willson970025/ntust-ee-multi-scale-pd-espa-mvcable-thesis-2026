@@ -1,0 +1,239 @@
+{
+  "exp_name": "epsa_inv_only",
+  "attention_mode": "epsa",
+  "input_mode": "inv_only",
+  "input_channels": 1,
+  "trainable_params": 55466567,
+  "best_epoch": 34,
+  "best_val_accuracy": 0.9972497224807739,
+  "final_train_loss": 0.5733827948570251,
+  "final_train_accuracy": 1.0,
+  "final_val_loss": 0.5848806500434875,
+  "final_val_accuracy": 0.9966996908187866,
+  "original_loss": 0.5815500617027283,
+  "original": {
+    "accuracy": 0.9989029072956664,
+    "macro_precision": 0.9992458791974085,
+    "macro_recall": 0.9992458791974085,
+    "macro_f1": 0.9992458791974085,
+    "weighted_precision": 0.9989029072956664,
+    "weighted_recall": 0.9989029072956664,
+    "weighted_f1": 0.9989029072956664,
+    "per_class_precision": [
+      0.9974093264248705,
+      0.9973118279569892,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "per_class_recall": [
+      0.9974093264248705,
+      0.9973118279569892,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "per_class_f1": [
+      0.9974093264248705,
+      0.9973118279569892,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "per_class_support": [
+      386,
+      372,
+      237,
+      288,
+      270,
+      135,
+      135
+    ],
+    "confusion_matrix": [
+      [
+        385,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        371,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        237,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        288,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        270,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        135,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        135
+      ]
+    ]
+  },
+  "augmented": {
+    "accuracy": 0.9975315414152496,
+    "macro_precision": 0.9983094951626905,
+    "macro_recall": 0.9982760363231221,
+    "macro_f1": 0.9982924498920782,
+    "weighted_precision": 0.997532793671435,
+    "weighted_recall": 0.9975315414152496,
+    "weighted_f1": 0.9975317109023819,
+    "per_class_precision": [
+      0.9931683899556869,
+      0.9949980761831474,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "per_class_recall": [
+      0.9953737971872687,
+      0.9930875576036866,
+      1.0,
+      1.0,
+      0.9994708994708995,
+      1.0,
+      1.0
+    ],
+    "per_class_f1": [
+      0.9942698706099815,
+      0.9940418989044781,
+      1.0,
+      1.0,
+      0.9997353797300873,
+      1.0,
+      1.0
+    ],
+    "per_class_support": [
+      5404,
+      5208,
+      3318,
+      4032,
+      3780,
+      1890,
+      1890
+    ],
+    "confusion_matrix": [
+      [
+        5379,
+        25,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        36,
+        5172,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        3318,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        4032,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        1,
+        0,
+        0,
+        3778,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1890,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1890
+      ]
+    ]
+  },
+  "robustness_gap": -0.0013713658804168638,
+  "output_dir": "/home/cckuo/m11307u09/GG/1126/epsanet50/all in one/all_7class_7(G)_add_noise_mix_train/ablation_results/epsa_inv_only",
+  "model_path": "/home/cckuo/m11307u09/GG/1126/epsanet50/all in one/all_7class_7(G)_add_noise_mix_train/ablation_results/epsa_inv_only/best_model_epsa_inv_only.keras",
+  "reused_from": null,
+  "determinism_note": "本消融實驗固定 RANDOM_STATE=42，並設定 random / numpy / tensorflow 種子；但未啟用 tf.config.experimental.enable_op_determinism()，以避免 GPU MaxPool gradient deterministic kernel 與訓練流程衝突。因此 GPU 訓練結果可能仍存在極小浮點差異。"
+}

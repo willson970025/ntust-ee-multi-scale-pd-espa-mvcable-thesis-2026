@@ -1,0 +1,239 @@
+{
+  "exp_name": "epsa_inv_gx",
+  "attention_mode": "epsa",
+  "input_mode": "inv_gx",
+  "input_channels": 2,
+  "trainable_params": 55469703,
+  "best_epoch": 43,
+  "best_val_accuracy": 0.9977997541427612,
+  "final_train_loss": 0.5732482671737671,
+  "final_train_accuracy": 1.0,
+  "final_val_loss": 0.5842082500457764,
+  "final_val_accuracy": 0.9972497224807739,
+  "original_loss": 0.581248939037323,
+  "original": {
+    "accuracy": 0.997805814591333,
+    "macro_precision": 0.9985347985347985,
+    "macro_recall": 0.9984639016897081,
+    "macro_f1": 0.9984914222027624,
+    "weighted_precision": 0.9978283190570629,
+    "weighted_recall": 0.997805814591333,
+    "weighted_f1": 0.9978055394775314,
+    "per_class_precision": [
+      0.9897435897435898,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "per_class_recall": [
+      1.0,
+      0.989247311827957,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "per_class_f1": [
+      0.9948453608247423,
+      0.9945945945945946,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "per_class_support": [
+      386,
+      372,
+      237,
+      288,
+      270,
+      135,
+      135
+    ],
+    "confusion_matrix": [
+      [
+        386,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        4,
+        368,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        237,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        288,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        270,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        135,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        135
+      ]
+    ]
+  },
+  "augmented": {
+    "accuracy": 0.9966303581224042,
+    "macro_precision": 0.9976316371062511,
+    "macro_recall": 0.9975969833399215,
+    "macro_f1": 0.9976114268466353,
+    "weighted_precision": 0.9966380800893228,
+    "weighted_recall": 0.9966303581224042,
+    "weighted_f1": 0.9966300583131893,
+    "per_class_precision": [
+      0.9893323524002207,
+      0.9953614224971009,
+      1.0,
+      0.9992565055762082,
+      1.0,
+      0.9994711792702274,
+      1.0
+    ],
+    "per_class_recall": [
+      0.9953737971872687,
+      0.988863287250384,
+      1.0,
+      1.0,
+      0.9994708994708995,
+      1.0,
+      0.9994708994708995
+    ],
+    "per_class_f1": [
+      0.9923438797158933,
+      0.9921017145058756,
+      1.0,
+      0.9996281145407214,
+      0.9997353797300873,
+      0.999735519703782,
+      0.9997353797300873
+    ],
+    "per_class_support": [
+      5404,
+      5208,
+      3318,
+      4032,
+      3780,
+      1890,
+      1890
+    ],
+    "confusion_matrix": [
+      [
+        5379,
+        22,
+        0,
+        3,
+        0,
+        0,
+        0
+      ],
+      [
+        58,
+        5150,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        3318,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        4032,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        2,
+        0,
+        0,
+        3778,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1890,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1889
+      ]
+    ]
+  },
+  "robustness_gap": -0.0011754564689288038,
+  "output_dir": "/home/cckuo/m11307u09/GG/1126/epsanet50/all in one/all_7class_7(G)_add_noise_mix_train/ablation_results/epsa_inv_gx",
+  "model_path": "/home/cckuo/m11307u09/GG/1126/epsanet50/all in one/all_7class_7(G)_add_noise_mix_train/ablation_results/epsa_inv_gx/best_model_epsa_inv_gx.keras",
+  "reused_from": null,
+  "determinism_note": "本消融實驗固定 RANDOM_STATE=42，並設定 random / numpy / tensorflow 種子；但未啟用 tf.config.experimental.enable_op_determinism()，以避免 GPU MaxPool gradient deterministic kernel 與訓練流程衝突。因此 GPU 訓練結果可能仍存在極小浮點差異。"
+}
