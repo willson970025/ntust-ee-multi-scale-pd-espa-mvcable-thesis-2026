@@ -1,0 +1,20 @@
+第 4.6 節 消融實驗 Grad-CAM 同圖比較 — 選用樣本資訊
+======================================================================
+選用圖檔路徑 : /home/cckuo/m11307u09/GG/1126/data_original G/test/AH3/termination_AH3_16500V_1140207_143925_aug_0.png
+true label   : AH (空洞)
+select_class : None
+target_mode  : pred
+colormap     : turbo   alpha: 0.4
+visualization_base = Original PRPD image
+model_input_note = Model input still follows ablation preprocessing; only visualization base image is changed.
+----------------------------------------------------------------------
+各模型預測結果：
+  baseline_epsa_3ch  input_mode=inv_gx_gy Pred=AH  Conf= 99.09%  (正確)  GradCAM target=AH
+  no_attention_3ch   input_mode=inv_gx_gy Pred=AH  Conf= 97.22%  (正確)  GradCAM target=AH
+  epsa_inv_only      input_mode=inv_only  Pred=AH  Conf= 95.82%  (正確)  GradCAM target=AH
+  epsa_inv_gx        input_mode=inv_gx    Pred=AH  Conf= 95.88%  (正確)  GradCAM target=AH
+  epsa_inv_gy        input_mode=inv_gy    Pred=AH  Conf= 96.44%  (正確)  GradCAM target=AH
+----------------------------------------------------------------------
+提醒：Grad-CAM 僅為定性視覺化工具，各模型 heatmap 各自正規化至 0~1，
+      顏色僅代表該模型內部相對關注區域，不能跨模型作絕對強度比較，
+      亦不能單獨作為模型優劣之證據。
