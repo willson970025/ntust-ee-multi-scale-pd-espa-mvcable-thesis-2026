@@ -1,0 +1,13 @@
+{
+  "os_platform": "Linux-6.6.114.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "os_system": "Linux",
+  "os_release": "6.6.114.1-microsoft-standard-WSL2",
+  "python_version": "3.12.3",
+  "tensorflow_version": "2.21.0-dev20251127",
+  "keras_version": "3.12.0.dev2025100703",
+  "cudnn_version": "9",
+  "gpu_name": "NVIDIA GeForce RTX 5090",
+  "gpu_memory": "32607 MiB",
+  "driver_version": "610.47",
+  "cuda_version": "12.5.1"
+}

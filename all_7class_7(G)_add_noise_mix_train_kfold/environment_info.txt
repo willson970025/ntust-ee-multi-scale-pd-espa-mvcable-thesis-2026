@@ -1,0 +1,12 @@
+============================================================
+實驗環境資訊 (論文表 4-1)
+============================================================
+OS / Platform     : Linux-6.6.114.1-microsoft-standard-WSL2-x86_64-with-glibc2.39
+Python Version    : 3.12.3
+TensorFlow Version: 2.21.0-dev20251127
+Keras Version     : 3.12.0.dev2025100703
+GPU Name          : NVIDIA GeForce RTX 5090
+GPU Memory        : 32607 MiB
+Driver Version    : 610.47
+CUDA Version      : 12.5.1
+cuDNN Version     : 9

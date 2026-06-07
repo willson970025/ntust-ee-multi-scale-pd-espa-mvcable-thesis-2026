@@ -1,0 +1,40 @@
+{
+  "input_shape": [
+    80,
+    180,
+    3
+  ],
+  "n_folds": 5,
+  "random_state": 42,
+  "batch_size": 128,
+  "epochs": 100,
+  "optimizer": "SGD",
+  "momentum": 0.9,
+  "nesterov": true,
+  "target_lr": 0.002,
+  "min_lr": 1e-05,
+  "loss": "CategoricalCrossentropy",
+  "label_smoothing": 0.05,
+  "dropout": 0.2,
+  "weight_decay": 1e-05,
+  "augment_factor": 14,
+  "noise_count": 8,
+  "use_multichannel": true,
+  "class_names": [
+    "AH",
+    "CT",
+    "HT",
+    "TD",
+    "CD",
+    "ID",
+    "SD"
+  ],
+  "train_augment": true,
+  "validation_augment": false,
+  "kfold_validation_augment": false,
+  "test_augment_for_main_eval": false,
+  "augmented_test_for_robustness_only": true,
+  "kfold_pool": "train + val",
+  "tsne_data_source": "unaugmented fold validation set",
+  "checkpoint_monitor": "val_accuracy on unaugmented fold validation set"
+}
